@@ -1,3 +1,5 @@
+console.log("content.js has loaded");
+
 function scrapeAndSendContent() {
     const pageContent = {
       html: document.documentElement.innerHTML,
