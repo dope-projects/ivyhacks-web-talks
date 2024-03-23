@@ -1,6 +1,7 @@
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import anthropic
+import time
 
 def initialize_driver():
     """Initialize and return a Chrome WebDriver."""
