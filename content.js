@@ -12,6 +12,9 @@ function scrapeAndSendContent() {
     });
   }
   
-  // When the DOM is fully loaded, scrape the content.
-  document.addEventListener('DOMContentLoaded', scrapeAndSendContent);
+if (document.readyState === "loading") {
+    document.addEventListener('DOMContentLoaded', scrapeAndSendContent);
+    } else {
+        scrapeAndSendContent(); // If the content script runs after the DOM is complete
+}
   
