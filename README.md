@@ -5,9 +5,9 @@ Ivy Hacks Hackathon: Web extension to interact with websites
 
 By Mert Bozkir, Mishahal Palakuniyil, Madhav Bhatia
 
-[Chrome Extention](https://github.com/thebadcoder96/ivyhacks-web-talks/blob/main/assets/videos/Video%20Demo%20Chrome%20Extention.mp4)
+[! Chrome Extention](https://github.com/thebadcoder96/ivyhacks-web-talks/blob/main/assets/videos/Video%20Demo%20Chrome%20Extention.mp4)
 
-[Python Code](https://github.com/thebadcoder96/ivyhacks-web-talks/blob/main/assets/videos/Working_Demo_Python.mp4)
+[! Python Code](https://github.com/thebadcoder96/ivyhacks-web-talks/blob/main/assets/videos/Working_Demo_Python.mp4)
 
 
 ## Tech Stack
