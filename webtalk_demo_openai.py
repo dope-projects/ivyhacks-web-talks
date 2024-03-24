@@ -161,40 +161,30 @@ def update_chatbox_prompt_1(driver, summary):
 
 def execute_actionable_js(driver, action_output):
     """
-    Executes JavaScript actions extracted from the given action output safely,
-    including checks for the existence of elements referenced in the actions.
+    Executes JavaScript actions extracted from the action output safely,
+    including dynamic checks for the existence of elements referenced in the actions.
     """
-    import re
-
-    # Regex to find JavaScript code blocks within the action output
-    js_code_pattern = re.compile(r'```javascript([\s\S]*?)```')
-
-    # Find all JavaScript code blocks in the action output
-    js_codes = js_code_pattern.findall(action_output)
-    print("js_code_pattern",js_codes)    
-    # Base JavaScript template for checking element existence before action
-    check_template = """
-    (function() {{
+    # Directly insert action_output into the f-string
+    safety_wrapper = f"""
+    function safelyExecute() {{
         try {{
-            {check_script}
+            {action_output}
         }} catch (error) {{
-            console.error('Error executing script:', error);
+            console.error('Execution Error:', error.toString());
         }}
-    }})();
+    }}
+    
+    safelyExecute();
     """
+    
+    # Execute the safely wrapped JavaScript code
+    try:
+        driver.execute_script(safety_wrapper)
+    except Exception as e:
+        print(f"Error executing JavaScript: {e}")
 
-    for js_code in js_codes:
-        # Generate a script that includes safety checks for element existence
-        safe_script = js_code.strip()
 
-        # Wrap the safe script in the existence check template
-        wrapped_script = check_template.format(check_script=safe_script)
 
-        # Execute the safely wrapped JavaScript code
-        try:
-            driver.execute_script(wrapped_script)
-        except Exception as e:
-            print(f"Error executing JavaScript: {e}")
 
 
 def get_actionable_items(driver, api_key, user_input):
@@ -229,18 +219,26 @@ def get_actionable_items(driver, api_key, user_input):
 # Main execution
 if __name__ == "__main__":
     driver = initialize_driver()
-    open_webpage(driver, "https://www.google.com")
+    url = "https://www.google.com"  # Example URL
+    open_webpage(driver, url)
     inject_chatbox(driver)
-    summary = get_page_summary(driver, api_key)  # Replace "YOUR_API_KEY_HERE" with your actual API key
-    update_chatbox_prompt_1(driver, summary)
-    # The browser will stay open until manually closed.
-    # Wait for and get user input
-    user_input = wait_for_user_input(driver)
-    print(f"User input received: {user_input}")
-    actionable_items = get_actionable_items(driver, api_key,user_input)
-    print(actionable_items)
-    execute_actionable_js(driver, actionable_items)
-    summary = get_page_summary(driver, api_key)
-    update_chatbox_prompt_1(driver, summary)
-    print("Waiting for 1000 seconds. Close the browser manually if needed.")
-    time.sleep(1000)  # Wait for 1000 seconds before ending the script
+    
+    while True:
+        summary = get_page_summary(driver, api_key)
+        update_chatbox_prompt_1(driver, summary)
+        # Get user input from the chatbox
+        user_input = wait_for_user_input(driver)
+        print(f"User input received: {user_input}")
+
+        if user_input.lower() == "exit":  # Define a way for the user to exit the loop
+            print("Exiting...")
+            break
+
+        # Generate actionable items based on the current page content and user input
+        actionable_items = get_actionable_items(driver, api_key, user_input)
+        print(actionable_items)
+
+        # Execute any JavaScript provided by the actionable items
+        execute_actionable_js(driver, actionable_items)
+        time.sleep(5)
+    print("Session ended. You can close the browser manually.")
