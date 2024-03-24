@@ -72,11 +72,11 @@ def wait_for_user_input(driver):
         time.sleep(1)  # Wait a bit before checking again to reduce load
 
 
-def update_chatbox(driver, summary):
-    """Update the chatbox with the summary and show the input and button, and add a hidden input to track submission."""
+def update_chatbox_prompt_1(driver, summary):
+    """Update the chatbox to hide the submit button and clear the summary after submission, then show 'working on it', while retaining button aesthetics."""
     escaped_text = summary.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
 
-    # Update the chatbox content, make input field, button visible, and improve button CSS
+    # Update the chatbox content and make input field and button visible
     update_script = f"""
     document.getElementById('messages').innerText = '{escaped_text}';
     document.getElementById('chatbox_input').style.display = 'block';
@@ -85,19 +85,14 @@ def update_chatbox(driver, summary):
     document.getElementById('submit_button').style.border = '1px solid #ccc';
     document.getElementById('submit_button').style.padding = '10px';
     document.getElementById('submit_button').style.cursor = 'pointer';
-    document.getElementById('submit_button').onmousedown = function() {{
-        this.style.backgroundColor = '#d0d0d0';
-    }};
-    document.getElementById('submit_button').onmouseup = function() {{
-        this.style.backgroundColor = '#f0f0f0';
-    }};
     """
     driver.execute_script(update_script)
 
-    # Handling Enter key for input submission and adding the hidden input field for submission tracking
+    # Modify script for button click to hide the submit button, display "working on it..." message, and retain aesthetics
     input_script = """
     var input = document.getElementById('chatbox_input');
     var button = document.getElementById('submit_button');
+    var messages = document.getElementById('messages');
     input.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             button.click();
@@ -105,8 +100,18 @@ def update_chatbox(driver, summary):
     });
     button.addEventListener('click', function() {
         document.getElementById('is_submitted').value = 'yes';
-        console.log(input.value);
+        messages.innerText = 'Working on it...';
+        input.style.display = 'none';   // Optionally hide the input as well
+        // Hide the button by setting display to 'none'
+        this.style.display = 'none';
     });
+    // Add the aesthetics and functionality to handle mouse down and up events for the button
+    button.onmousedown = function() {
+        this.style.backgroundColor = '#d0d0d0';
+    };
+    button.onmouseup = function() {
+        this.style.backgroundColor = '#f0f0f0';
+    };
     if (!document.getElementById('is_submitted')) {
         var hiddenInput = document.createElement('input');
         hiddenInput.type = 'hidden';
@@ -118,13 +123,14 @@ def update_chatbox(driver, summary):
     driver.execute_script(input_script)
 
 
+
 # Main execution
 if __name__ == "__main__":
     driver = initialize_driver()
     open_webpage(driver, "https://www.google.com")
     inject_chatbox(driver)
     summary = get_page_summary(driver, anthropic_api_key)  # Replace "YOUR_API_KEY_HERE" with your actual API key
-    update_chatbox(driver, summary)
+    update_chatbox_prompt_1(driver, summary)
     # The browser will stay open until manually closed.
     # Wait for and get user input
     user_input = wait_for_user_input(driver)
