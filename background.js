@@ -28,9 +28,7 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
         const result = await getStorageData(["chatHistory"]);
 
         if (!result.chatHistory || result.chatHistory.length === 0) {
-            chatHistory = [
-                { role: "system", content: "I'm your helpful chat bot! I provide helpful and concise answers." },
-            ];
+            chatHistory = [];
         } else {
             chatHistory = result.chatHistory;
         }
@@ -62,10 +60,10 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
             // Send the user's message to the OpenAI API
             const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
 
-            if (response && response.choices && response.choices.length > 0) {
+            if (response) {
 
                 // Get the assistant's response
-                const assistantResponse = response.choices[0].message.content;
+                const assistantResponse = response.content[0].text;
 
                 // Add the assistant's response to the message array
                 chatHistory.push({ role: "assistant", content: assistantResponse });
@@ -91,10 +89,12 @@ async function fetchChatCompletion(messages, apiKey, apiModel) {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                "x-api-key": '${apiKey}',
-                'content-type': application/json
+                "x-api-key": apiKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json'
             },
             body: JSON.stringify({
+                "max_tokens": 1024,
                 "messages": messages,
                 "model": apiModel,
             })

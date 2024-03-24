@@ -9,7 +9,6 @@
         "128": "assets/icons/icon-128.png"
     },
     "host_permissions": [
-        "https://api.openai.com/v1/completions",
         "https://api.anthropic.com/v1/messages"
     ],
     "permissions": [
