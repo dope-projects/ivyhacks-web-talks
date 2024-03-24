@@ -1,26 +1,27 @@
 {
-    "manifest_version": 3,
-    "name": "Web Talks",
-    "description": "Summarizes the content of webpages using an LLM.",
-    "version": "1.0",
-    "permissions": [
-      "activeTab",
-      "scripting"
-    ],
+    "name": "Web Talks!🎙️",
+    "version": "0.0.1",
+    "description": "A chrome extension that reads out the text on the webpage.",
+    "default_locale": "en",
+    "icons": {
+        "16": "assets/icons/icon-16.png",
+        "48": "assets/icons/icon-48.png",
+        "128": "assets/icons/icon-128.png"
+    },
     "host_permissions": [
-      "<all_urls>"
+        "https://api.openai.com/v1/completions",
+        "https://api.anthropic.com/v1/messages"
+    ],
+    "permissions": [
+        "storage",
+        "downloads"
     ],
     "background": {
-      "service_worker": "background.js"
+        "service_worker": "background.js"
     },
-    "content_scripts": [
-      {
-        "matches": ["<all_urls>"],
-        "js": ["content.js"]
-      }
-    ],
     "action": {
-      "default_popup": "popup.html"
-    }
-  }
-  
+        "default_popup": "popup/popup.html"
+    },
+    "options_page": "options/options.html",
+    "manifest_version": 3
+}

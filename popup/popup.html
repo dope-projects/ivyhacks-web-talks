@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+    <div id="header-container">
+        <div class="dropdown">
+            <button id="model-dropdown-btn" title="Change model">
+                <i id="model-dropdown-btn-icon" class="fa fa-robot"></i>
+                <span id="model-dropdown-btn-text"></span>
+            </button>
+            <div id="model-dropdown-content">
+                <a id="claude-2.1" class="model-dropdown-btn">Claude 2.1 (fastest)</a>
+                <a id="claude-3-haiku-20240307" class="model-dropdown-btn">Claude 3 Haiku (cleverest)</a>
+                <a id="claude-3-opus-20240229" class="model-dropdown-btn">Claude 3 Opus (images)</a>
+            </div>
+        </div>
+        <div id="action-btn-container">
+            <button id="clear-chat-btn" title="Clear chat">
+                <i class="fa fa-trash"></i>
+            </button>
+            <button id="settings-btn" title="Settings">
+                <i class="fa fa-cog"></i>
+            </button>
+        </div>
+    </div>
+    <div id="chat-container">
+        <div id="chat-messages"></div>
+    </div>
+    <div class="input-container">
+        <input type="text" id="user-input" placeholder="Type your message...">
+        <button id="send-btn" title="Send message">
+            <i class="fa fa-paper-plane"></i>
+        </button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
