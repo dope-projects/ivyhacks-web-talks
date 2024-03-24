@@ -158,57 +158,64 @@ def update_chatbox_prompt_1(driver, summary):
     """
     driver.execute_script(input_script)
 
-# def get_actionable_items(driver, api_key, user_input):
-    # """Generate a summary of the webpage using OpenAI's API and return actionable JavaScript based on user input."""
-    # html = driver.page_source
-    # soup = extract_actionable_content(html)
-    # client = OpenAI(api_key=api_key)
-    
-    # prompt = f"""Given the user's intention and webpage content, identify key actions and generate corresponding JavaScript. 
-    # Focus on actions like form submissions, sign-ups, and feedback based on the user's needs.
-    # Do not perform any action.
-    # Only identify user's need.
 
-    # User's need: {user_input}
-    # Webpage content: {soup}
+def execute_actionable_js(driver, action_output):
+    """
+    Executes JavaScript actions extracted from the given action output safely,
+    including checks for the existence of elements referenced in the actions.
+    """
+    import re
 
-    # Provide actionable JavaScript snippets for user's identified need and see if the webpage can facilitate that, formatted as:
-    # Action1: [JS code 1]
-    # Action2: [JS code 2]
-    # .
-    # .
-    # .
-    # .
-    # """
+    # Regex to find JavaScript code blocks within the action output
+    js_code_pattern = re.compile(r'```javascript([\s\S]*?)```')
 
-    # openai_response = client.chat.completions.create(
-        # model='gpt-3.5-turbo',
-        # messages=[{'role': 'user', 'content': prompt}]
-    # )
+    # Find all JavaScript code blocks in the action output
+    js_codes = js_code_pattern.findall(action_output)
+    print("js_code_pattern",js_codes)    
+    # Base JavaScript template for checking element existence before action
+    check_template = """
+    (function() {{
+        try {{
+            {check_script}
+        }} catch (error) {{
+            console.error('Error executing script:', error);
+        }}
+    }})();
+    """
 
-    # return openai_response.choices[0].message.content
+    for js_code in js_codes:
+        # Generate a script that includes safety checks for element existence
+        safe_script = js_code.strip()
+
+        # Wrap the safe script in the existence check template
+        wrapped_script = check_template.format(check_script=safe_script)
+
+        # Execute the safely wrapped JavaScript code
+        try:
+            driver.execute_script(wrapped_script)
+        except Exception as e:
+            print(f"Error executing JavaScript: {e}")
+
 
 def get_actionable_items(driver, api_key, user_input):
-    """Generate a summary of the webpage using OpenAI's API and return actionable JavaScript based on user input."""
+    """Generate a summary of the webpage with OpenAI's API and return actionable JavaScript for elderly users."""
     html = driver.page_source
     soup = extract_actionable_content(html)
     client = OpenAI(api_key=api_key)
     
-    prompt = f"""Given the user's intention and webpage content, identify key actions and generate corresponding JavaScript. 
-    Focus on actions like form submissions, sign-ups, and feedback based on the user's needs.
-    Do not perform any action.
-    Only identify user's need.
+    prompt = f"""
+    Assist an elderly person with limited tech experience to fulfill their intention using the webpage content. 
+    Simplify their task with JavaScript automation and enhance visibility of key elements.
 
     User's need: {user_input}
-    Webpage content: {soup}
+    Simplified Webpage content: {soup}
 
-    Provide actionable JavaScript snippets for user's identified need and see if the webpage can facilitate that, formatted as:
-    Action1: [JS code 1]
-    Action2: [JS code 2]
-    .
-    .
-    .
-    .
+    Generate JavaScript that:
+    1. Automates the action directly related to the user's need.
+    2. Highlights important webpage elements for easier visibility.
+
+    Format your response as actionable JavaScript snippets.
+    
     """
 
     openai_response = client.chat.completions.create(
@@ -232,5 +239,8 @@ if __name__ == "__main__":
     print(f"User input received: {user_input}")
     actionable_items = get_actionable_items(driver, api_key,user_input)
     print(actionable_items)
+    execute_actionable_js(driver, actionable_items)
+    summary = get_page_summary(driver, api_key)
+    update_chatbox_prompt_1(driver, summary)
     print("Waiting for 1000 seconds. Close the browser manually if needed.")
     time.sleep(1000)  # Wait for 1000 seconds before ending the script
