@@ -1,5 +1,5 @@
 # ivyhacks-web-talks
-Ivy Hacks Hackathon: Web extension to interact with websites
+Ivy Hacks 36-Hour Hackathon: Web extension to interact with websites
 
 [IvyHacks](https://www.ivyhacks.ai/) - Columbia x Cornell x NYU AI Hackathon
 
