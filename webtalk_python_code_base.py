@@ -2,6 +2,15 @@ from selenium import webdriver
 from bs4 import BeautifulSoup
 import anthropic
 import time
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Access your environment variable
+anthropic_api_key = os.getenv('Anthropic_API_Key')
+
 
 def initialize_driver():
     """Initialize and return a Chrome WebDriver."""
@@ -43,11 +52,21 @@ def get_page_summary(driver, api_key):
     content_block = response.content[0]
     return content_block.text
 
+def wait_for_user_input(driver):
+    while True:
+        is_submitted = driver.execute_script("return document.getElementById('is_submitted').value;")
+        if is_submitted == 'yes':
+            user_input = driver.execute_script("return document.getElementById('chatbox_input').value;")
+            return user_input
+        time.sleep(1)  # Wait a bit before checking again to reduce load
+
+
 def update_chatbox(driver, summary):
-    """Update the chatbox with the summary and show the input and button."""
+    """Update the chatbox with the summary and show the input and button, and add a hidden input to track submission."""
     # Escaping single quotes, newlines, and backslashes for JavaScript
     escaped_text = summary.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
 
+    # Update the chatbox content and make input field, button visible
     update_script = f"""
     document.getElementById('messages').innerText = '{escaped_text}';
     document.getElementById('chatbox_input').style.display = 'block';
@@ -55,13 +74,26 @@ def update_chatbox(driver, summary):
     """
     driver.execute_script(update_script)
 
+    # Add the hidden input field for submission tracking if not already added
+    driver.execute_script("""
+    if (!document.getElementById('is_submitted')) {
+        var hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.id = 'is_submitted';
+        hiddenInput.value = 'no';
+        document.body.appendChild(hiddenInput);
+    }
+    """)
+
+    # Update the input script to change the hidden input's value on submit
     input_script = """
     var input = document.getElementById('chatbox_input');
     var button = document.getElementById('submit_button');
     button.addEventListener('click', function() {
-        console.log(input.value);  // Here you can handle the input value as needed
+        document.getElementById('is_submitted').value = 'yes';  // Signal that input has been submitted
+        console.log(input.value);  // Log the input value for debugging
+        // You can still alert or handle the input value as before
         alert('Input received: ' + input.value);  // Just for demonstration
-        // Keep the window open or add further actions
     });
     """
     driver.execute_script(input_script)
@@ -71,8 +103,11 @@ if __name__ == "__main__":
     driver = initialize_driver()
     open_webpage(driver, "https://www.google.com")
     inject_chatbox(driver)
-    summary = get_page_summary(driver, "YOUR_API_KEY_HERE")  # Replace "YOUR_API_KEY_HERE" with your actual API key
+    summary = get_page_summary(driver, anthropic_api_key)  # Replace "YOUR_API_KEY_HERE" with your actual API key
     update_chatbox(driver, summary)
     # The browser will stay open until manually closed.
+    # Wait for and get user input
+    user_input = wait_for_user_input(driver)
+    print(f"User input received: {user_input}")
     print("Waiting for 1000 seconds. Close the browser manually if needed.")
     time.sleep(1000)  # Wait for 1000 seconds before ending the script
