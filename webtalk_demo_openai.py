@@ -1,6 +1,6 @@
 from selenium import webdriver
 from bs4 import BeautifulSoup
-import anthropic
+from openai import OpenAI
 import time
 from dotenv import load_dotenv
 import os
@@ -12,7 +12,7 @@ from selenium.common.exceptions import NoAlertPresentException
 load_dotenv()
 
 # Access your environment variable
-anthropic_api_key = os.getenv('Anthropic_API_Key')
+api_key = os.getenv('OPENAI_API_KEY')
 
 
 def initialize_driver():
@@ -37,25 +37,74 @@ def inject_chatbox(driver):
     
 
 
+# def extract_important_content(html):
+    # soup = BeautifulSoup(html, 'html.parser')
+    
+    # # Find the main content area; adjust selectors as necessary
+    # main_content = soup.find('main') or soup.find('article') or soup.body
+    
+    # # Exclude less relevant sections
+    # for script_or_style in main_content.find_all(['script', 'style', 'nav', 'footer']):
+        # script_or_style.decompose()  # Remove these tags
+    
+    # # Extract text, optionally further process it to remove or summarize
+    # text = main_content.get_text(separator=' ', strip=True)
+    
+    # # Here you could further summarize the text if needed
+    # return text
+
+def extract_actionable_content(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    
+    # Initialize an empty list to store summaries of actionable elements
+    actionable_items = []
+
+    # Look for form elements, as they typically indicate user input actions
+    forms = soup.find_all('form')
+    for form in forms:
+        form_summary = "Form available for user input."
+        actionable_items.append(form_summary)
+
+    # Look for clickable buttons and links
+    buttons = soup.find_all('button')
+    links = soup.find_all('a', href=True)
+
+    for button in buttons:
+        button_summary = f"Button: {button.text.strip()}" if button.text.strip() else "Unnamed Button"
+        actionable_items.append(button_summary)
+
+    for link in links:
+        if link.text.strip():  # Only consider links with text
+            link_summary = f"Link to {link['href']}: {link.text.strip()}"
+            actionable_items.append(link_summary)
+
+    # Summarize actionable content
+    if not actionable_items:
+        return "No actionable items found."
+    return "Actionable items include: " + ", ".join(actionable_items)
+
 def get_page_summary(driver, api_key):
     """Generate a summary of the webpage using Anthropic API and return it."""
     html = driver.page_source
-    soup = BeautifulSoup(html, 'html.parser')
-
-    client = anthropic.Anthropic(api_key=api_key)
+    soup = extract_actionable_content(html)
+    
+    client = OpenAI(
+      api_key=api_key,  # Ensure your API key is set as an environment variable
+    )
+    
     prompt = ("You are an AI helper.\nI want you to prepare the 2 line summary of webpage for an old person who is not tech savvy and potentially vision disabled.\n"
               "Follow the instructions below carefully:\nRequirements:\n Generate the 2 line summary of webpage.\n Workflow:\n Ask for clarification if my webpage does not contain anything. \n"
               "Focus on actionable items for an elderly person. \n Ignore Javascript if it is not tied to any actionable item on page.\nGenerate the summary based on your assumptions for for an old person who is not tech savvy and potentially vision disabled.\n"
               "Follow the above carefully and think step by step. I will tip you $200 if you do a great job and don't miss anything.\n HTML Content starts from here:" + str(soup))
 
-    response = client.messages.create(
-      model="claude-2.1",
-      max_tokens=4096,
-      messages=[{"role": "user", "content": prompt}]
+    # Generating response from gpt-3.5-turbo
+    openai_response = client.chat.completions.create(
+        model='gpt-3.5-turbo',  # You may want to update the model if needed
+        messages=[{'role': 'user', 'content': prompt}]
     )
 
-    content_block = response.content[0]
-    return content_block.text
+    content_block = openai_response.choices[0].message.content
+    return content_block
 
 
 def wait_for_user_input(driver):
@@ -122,18 +171,52 @@ def update_chatbox_prompt_1(driver, summary):
     """
     driver.execute_script(input_script)
 
+def get_actionable_items(driver, api_key, user_input):
+    """Generate a summary of the webpage using OpenAI's API and return it."""
+    html = driver.page_source
+    soup = extract_actionable_content(html)
+    client = OpenAI(
+      api_key=api_key,  # Ensure your API key is set as an environment variable
+    )
+    prompt = ("""You are now an advanced intelligent assistant tasked with meticulously examining the content of a webpage. Your primary objective is to identify all forms that require user input and any text that suggests actionable items such as filling out information, signing up, or providing feedback. Importantly, you must also take into account any specific input or queries provided by a user interacting with the webpage. This means, if a user has entered certain information or posed questions, you should use this context to guide your identification and explanation of relevant actionable items.
 
+                For instance, if the user has shown interest in signing up for a newsletter by asking about it, focus on detailing the signup process and what information is needed (like name, email address, preferences). Similarly, if the user input suggests they are looking for feedback options, direct your attention to summarizing how and where they can leave their feedback on the webpage.
+
+                Remember, your role is to do this analysis quietly and without taking any direct actions such as clicking buttons or following links. Your goal is to compile a comprehensive list of these actionable items, clearly describing each and linking them back to the user's input or queries where applicable. Your insights should aim to support users in navigating the webpage, making their experience as personalized, seamless, and efficient as possible.
+
+                You will only share javascript which can be executed on the webpage and nothing else.
+                
+                Your output will be in following format:
+                Action Number , Javascript code
+                1, [Code1]
+                2, [Code2]
+
+                User Input : """ + str(user_input) + """ HTML page Details: """ + str(soup))
+
+    # Generating response from gpt-3.5-turbo
+    # Generating response from gpt-3.5-turbo
+    openai_response = client.chat.completions.create(
+        model='gpt-3.5-turbo',  # You may want to update the model if needed
+        messages=[{'role': 'user', 'content': prompt}]
+    )
+
+    content_block = openai_response.choices[0].message.content
+
+    return content_block
 
 # Main execution
 if __name__ == "__main__":
     driver = initialize_driver()
     open_webpage(driver, "https://www.google.com")
     inject_chatbox(driver)
-    summary = get_page_summary(driver, anthropic_api_key)  # Replace "YOUR_API_KEY_HERE" with your actual API key
+    summary = get_page_summary(driver, api_key)  # Replace "YOUR_API_KEY_HERE" with your actual API key
     update_chatbox_prompt_1(driver, summary)
     # The browser will stay open until manually closed.
     # Wait for and get user input
     user_input = wait_for_user_input(driver)
     print(f"User input received: {user_input}")
+    actionable_items = get_actionable_items(driver, api_key,user_input)
+    print(actionable_items)
     print("Waiting for 1000 seconds. Close the browser manually if needed.")
+    
     time.sleep(1000)  # Wait for 1000 seconds before ending the script
