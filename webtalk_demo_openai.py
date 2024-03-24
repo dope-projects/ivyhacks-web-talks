@@ -35,7 +35,29 @@ def inject_chatbox(driver):
     """
     driver.execute_script("document.body.innerHTML += arguments[0];", chatbox_html)
     
+def extract_actionable_htmls(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    
+    # Initialize an empty list to store the HTML content of actionable elements
+    actionable_html = []
 
+    # Extract and append raw HTML content for forms
+    forms = soup.find_all('form')
+    for form in forms:
+        actionable_html.append(str(form))
+
+    # Extract and append raw HTML content for buttons
+    buttons = soup.find_all('button')
+    for button in buttons:
+        actionable_html.append(str(button))
+
+    # Extract and append raw HTML content for links (anchor tags)
+    links = soup.find_all('a', href=True)
+    for link in links:
+        actionable_html.append(str(link))
+
+    # Return the raw HTML content of identified actionable elements
+    return actionable_html
 
 def extract_actionable_content(html):
     soup = BeautifulSoup(html, 'html.parser')
@@ -68,7 +90,7 @@ def extract_actionable_content(html):
     if not actionable_items:
         return "We couldn't find any specific actions to take on this page. You might want to look around or ask for help if you're looking for something specific."
     
-    return "Here's what you can do on this page: " + "; ".join(actionable_items) + ". If anything is unclear, you may want to ask someone for help or try clicking on items that interest you."
+    return "Here's what you can do on this page: " + "; ".join(actionable_items) + ". If anything is unclear, you may want to ask me or someone for help."
 
 def get_page_summary(driver, api_key):
     """Generate a summary of the webpage using Anthropic API and return it."""
@@ -174,13 +196,11 @@ def execute_actionable_js(driver, action_output):
     print("js_code_pattern",js_codes)    
     # Base JavaScript template for checking element existence before action
     check_template = """
-    (function() {{
         try {{
             {check_script}
         }} catch (error) {{
             console.error('Error executing script:', error);
         }}
-    }})();
     """
 
     for js_code in js_codes:
@@ -189,10 +209,12 @@ def execute_actionable_js(driver, action_output):
 
         # Wrap the safe script in the existence check template
         wrapped_script = check_template.format(check_script=safe_script)
+        print(wrapped_script)
 
         # Execute the safely wrapped JavaScript code
         try:
             driver.execute_script(wrapped_script)
+            print("Executed successfully")
         except Exception as e:
             print(f"Error executing JavaScript: {e}")
 
@@ -200,22 +222,23 @@ def execute_actionable_js(driver, action_output):
 def get_actionable_items(driver, api_key, user_input):
     """Generate a summary of the webpage with OpenAI's API and return actionable JavaScript for elderly users."""
     html = driver.page_source
-    soup = extract_actionable_content(html)
+    soup = extract_actionable_htmls(html)
     client = OpenAI(api_key=api_key)
     
     prompt = f"""
     Assist an elderly person with limited tech experience to fulfill their intention using the webpage content. 
-    Simplify their task with JavaScript automation and enhance visibility of key elements.
+    Simplify their task with JavaScript automation and enhance visibility of key elements. 
+    When generating the JavaScript codeblock, ensure that it is complete and does not require user input or interaction.
+    Do not assume any knowledge of the webpage content other than the HTML provided.
 
     User's need: {user_input}
-    Simplified Webpage content: {soup}
+    Actionable HTML contents: {soup}
 
     Generate JavaScript that:
-    1. Automates the action directly related to the user's need.
-    2. Highlights important webpage elements for easier visibility.
+    1. Highlights important webpage elements relevant to the user's need.
+    2. Automates the action directly related to the user's need. 
 
-    Format your response as actionable JavaScript snippets.
-    
+    Format your response as actionable JavaScript codeblocks. Use only what is needed to fulfill the user's need.
     """
 
     openai_response = client.chat.completions.create(
