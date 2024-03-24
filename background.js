@@ -17,69 +17,79 @@ chrome.runtime.onInstalled.addListener(function () {
 // Listen for messages from the popup script
 chrome.runtime.onMessage.addListener(async function (message, sender, sendResponse) {
 
-    if (message.userInput) {
+    // Get the API key from local storage
+    const { apiKey } = await getStorageData(["apiKey"]);
+    // Get the model from local storage
+    const { apiModel } = await getStorageData(["apiModel"]);
+    // get the chat history from local storage
+    const result = await getStorageData(["chatHistory"]);
 
-        // Get the API key from local storage
-        const { apiKey } = await getStorageData(["apiKey"]);
-        // Get the model from local storage
-        const { apiModel } = await getStorageData(["apiModel"]);
+    if (!result.chatHistory || result.chatHistory.length === 0) {
+        chatHistory = [];
+    } else {
+        chatHistory = result.chatHistory;
+    }
 
-        // get the chat history from local storage
-        const result = await getStorageData(["chatHistory"]);
+    if (message.html) {
+        console.log("Received HTML content from content script:", message.html);
 
-        if (!result.chatHistory || result.chatHistory.length === 0) {
-            chatHistory = [
-                { role: "system", content: "I'm your helpful chat bot! I provide helpful and concise answers." },
-            ];
-        } else {
-            chatHistory = result.chatHistory;
+        // Treat the HTML content as a message (either from the user or as a system info, your choice)
+        // Here, treating it as a system message for demonstration
+        const systemMessage = {
+            role: "user", // Or "user" based on your design decision
+            content: `Given the content from a web page, please provide a concise summary suitable for someone not familiar with technical jargon. Highlight the main points and any actionable insights or navigation commands that could help a user better understand and navigate the content. Here's the content: "${message.html}"`
+        };
+
+        // Add the system message to the chat history
+        chatHistory.push(systemMessage);
+
+        // Optionally, save the updated chat history to local storage
+        chrome.storage.local.set({ chatHistory: chatHistory });
+
+        const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
+
+        if (response) {
+
+            // Get the assistant's response
+            const assistantResponse = response.content[0].text;
+
+            // Add the assistant's response to the message array
+            chatHistory.push({ role: "assistant", content: assistantResponse });
+            // save message array to local storage
+            chrome.storage.local.set({ chatHistory: chatHistory });
+
+            // Send the assistant's response to the popup script
+            chrome.runtime.sendMessage({ answer: assistantResponse });
+
+            console.log("Sent response to popup:", assistantResponse);
         }
+    }
+
+    if (message.userInput) {
 
         // save user's message to message array
         chatHistory.push({ role: "user", content: message.userInput });
 
-        if (apiModel === "claude-3-haiku-20240307") {
-            // Send the user's message to the OpenAI API
-            const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
+        // Send the user's message to the OpenAI API
+        const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
 
-            if (response && response.data && response.data.length > 0) {
-                // Get the image URL
-                const imageUrl = response.data[0].url;
+        if (response) {
 
-                // Add the assistant's response to the message array
-                chatHistory.push({ role: "assistant", content: imageUrl });
+            // Get the assistant's response
+            const assistantResponse = response.content[0].text;
 
-                // save message array to local storage
-                chrome.storage.local.set({ chatHistory: chatHistory });
+            // Add the assistant's response to the message array
+            chatHistory.push({ role: "assistant", content: assistantResponse });
+            // save message array to local storage
+            chrome.storage.local.set({ chatHistory: chatHistory });
 
-                // Send the image URL to the popup script
-                chrome.runtime.sendMessage({ imageUrl: imageUrl });
+            // Send the assistant's response to the popup script
+            chrome.runtime.sendMessage({ answer: assistantResponse });
 
-                console.log("Sent image URL to popup:", imageUrl);
-            }
-            return true; // Enable response callback
-        } else {
-            // Send the user's message to the OpenAI API
-            const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
-
-            if (response && response.choices && response.choices.length > 0) {
-
-                // Get the assistant's response
-                const assistantResponse = response.choices[0].message.content;
-
-                // Add the assistant's response to the message array
-                chatHistory.push({ role: "assistant", content: assistantResponse });
-
-                // save message array to local storage
-                chrome.storage.local.set({ chatHistory: chatHistory });
-
-                // Send the assistant's response to the popup script
-                chrome.runtime.sendMessage({ answer: assistantResponse });
-
-                console.log("Sent response to popup:", assistantResponse);
-            }
-            return true; // Enable response callback
+            console.log("Sent response to popup:", assistantResponse);
         }
+        return true; // Enable response callback
+
     }
 
     return true; // Enable response callback
@@ -91,10 +101,12 @@ async function fetchChatCompletion(messages, apiKey, apiModel) {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                "x-api-key": '${apiKey}',
-                'content-type': application/json
+                "x-api-key": apiKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json'
             },
             body: JSON.stringify({
+                "max_tokens": 1024,
                 "messages": messages,
                 "model": apiModel,
             })
