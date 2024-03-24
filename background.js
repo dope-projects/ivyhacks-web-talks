@@ -24,6 +24,12 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
     // get the chat history from local storage
     const result = await getStorageData(["chatHistory"]);
 
+    if (!result.chatHistory || result.chatHistory.length === 0) {
+        chatHistory = [];
+    } else {
+        chatHistory = result.chatHistory;
+    }
+
     if (message.html) {
         console.log("Received HTML content from content script:", message.html);
 
@@ -31,8 +37,7 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
         // Here, treating it as a system message for demonstration
         const systemMessage = {
             role: "user", // Or "user" based on your design decision
-            content: "Summarize the webpage I am on in simple terms and help me navigate. \
-            Here is the scraped HTML Content of the current tab: " + message.html.substring(0,100000)// Showing a preview for brevity
+            content: `Given the content from a web page, please provide a concise summary suitable for someone not familiar with technical jargon. Highlight the main points and any actionable insights or navigation commands that could help a user better understand and navigate the content. Here's the content: "${message.html}"`
         };
 
         // Add the system message to the chat history
@@ -61,12 +66,6 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
     }
 
     if (message.userInput) {
-
-        if (!result.chatHistory || result.chatHistory.length === 0) {
-            chatHistory = [];
-        } else {
-            chatHistory = result.chatHistory;
-        }
 
         // save user's message to message array
         chatHistory.push({ role: "user", content: message.userInput });
