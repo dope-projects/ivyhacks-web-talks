@@ -4,6 +4,9 @@ import anthropic
 import time
 from dotenv import load_dotenv
 import os
+from selenium.webdriver.common.alert import Alert
+from selenium.common.exceptions import NoAlertPresentException
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -52,8 +55,14 @@ def get_page_summary(driver, api_key):
     content_block = response.content[0]
     return content_block.text
 
+
 def wait_for_user_input(driver):
     while True:
+        try:
+            Alert(driver).accept()  # Close the alert if present
+        except NoAlertPresentException:
+            pass  # If no alert is present, just ignore
+        
         is_submitted = driver.execute_script("return document.getElementById('is_submitted').value;")
         if is_submitted == 'yes':
             user_input = driver.execute_script("return document.getElementById('chatbox_input').value;")
