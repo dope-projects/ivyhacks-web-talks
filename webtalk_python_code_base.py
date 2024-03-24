@@ -34,6 +34,8 @@ def inject_chatbox(driver):
     </div>
     """
     driver.execute_script("document.body.innerHTML += arguments[0];", chatbox_html)
+    
+
 
 def get_page_summary(driver, api_key):
     """Generate a summary of the webpage using Anthropic API and return it."""
@@ -72,19 +74,39 @@ def wait_for_user_input(driver):
 
 def update_chatbox(driver, summary):
     """Update the chatbox with the summary and show the input and button, and add a hidden input to track submission."""
-    # Escaping single quotes, newlines, and backslashes for JavaScript
     escaped_text = summary.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
 
-    # Update the chatbox content and make input field, button visible
+    # Update the chatbox content, make input field, button visible, and improve button CSS
     update_script = f"""
     document.getElementById('messages').innerText = '{escaped_text}';
     document.getElementById('chatbox_input').style.display = 'block';
     document.getElementById('submit_button').style.display = 'block';
+    document.getElementById('submit_button').style.backgroundColor = '#f0f0f0';
+    document.getElementById('submit_button').style.border = '1px solid #ccc';
+    document.getElementById('submit_button').style.padding = '10px';
+    document.getElementById('submit_button').style.cursor = 'pointer';
+    document.getElementById('submit_button').onmousedown = function() {{
+        this.style.backgroundColor = '#d0d0d0';
+    }};
+    document.getElementById('submit_button').onmouseup = function() {{
+        this.style.backgroundColor = '#f0f0f0';
+    }};
     """
     driver.execute_script(update_script)
 
-    # Add the hidden input field for submission tracking if not already added
-    driver.execute_script("""
+    # Handling Enter key for input submission and adding the hidden input field for submission tracking
+    input_script = """
+    var input = document.getElementById('chatbox_input');
+    var button = document.getElementById('submit_button');
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            button.click();
+        }
+    });
+    button.addEventListener('click', function() {
+        document.getElementById('is_submitted').value = 'yes';
+        console.log(input.value);
+    });
     if (!document.getElementById('is_submitted')) {
         var hiddenInput = document.createElement('input');
         hiddenInput.type = 'hidden';
@@ -92,20 +114,9 @@ def update_chatbox(driver, summary):
         hiddenInput.value = 'no';
         document.body.appendChild(hiddenInput);
     }
-    """)
-
-    # Update the input script to change the hidden input's value on submit
-    input_script = """
-    var input = document.getElementById('chatbox_input');
-    var button = document.getElementById('submit_button');
-    button.addEventListener('click', function() {
-        document.getElementById('is_submitted').value = 'yes';  // Signal that input has been submitted
-        console.log(input.value);  // Log the input value for debugging
-        // You can still alert or handle the input value as before
-        alert('Input received: ' + input.value);  // Just for demonstration
-    });
     """
     driver.execute_script(input_script)
+
 
 # Main execution
 if __name__ == "__main__":
