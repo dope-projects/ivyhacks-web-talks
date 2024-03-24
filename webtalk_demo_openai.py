@@ -37,51 +37,38 @@ def inject_chatbox(driver):
     
 
 
-# def extract_important_content(html):
-    # soup = BeautifulSoup(html, 'html.parser')
-    
-    # # Find the main content area; adjust selectors as necessary
-    # main_content = soup.find('main') or soup.find('article') or soup.body
-    
-    # # Exclude less relevant sections
-    # for script_or_style in main_content.find_all(['script', 'style', 'nav', 'footer']):
-        # script_or_style.decompose()  # Remove these tags
-    
-    # # Extract text, optionally further process it to remove or summarize
-    # text = main_content.get_text(separator=' ', strip=True)
-    
-    # # Here you could further summarize the text if needed
-    # return text
-
 def extract_actionable_content(html):
     soup = BeautifulSoup(html, 'html.parser')
     
     # Initialize an empty list to store summaries of actionable elements
     actionable_items = []
 
-    # Look for form elements, as they typically indicate user input actions
+    # Look for form elements, highlighting their purpose in simple terms
     forms = soup.find_all('form')
     for form in forms:
-        form_summary = "Form available for user input."
+        form_summary = "There is a form here for providing information or making requests."
         actionable_items.append(form_summary)
 
-    # Look for clickable buttons and links
+    # Identify and describe buttons in clear, actionable language
     buttons = soup.find_all('button')
-    links = soup.find_all('a', href=True)
-
     for button in buttons:
-        button_summary = f"Button: {button.text.strip()}" if button.text.strip() else "Unnamed Button"
+        button_text = button.text.strip() or "unnamed"
+        button_summary = f"There's a '{button_text}' button that you can press for more actions."
         actionable_items.append(button_summary)
 
+    # Simplify link descriptions, focusing on what the user can expect to find or do
+    links = soup.find_all('a', href=True)
     for link in links:
-        if link.text.strip():  # Only consider links with text
-            link_summary = f"Link to {link['href']}: {link.text.strip()}"
+        link_text = link.text.strip()
+        if link_text:  # Only consider links with descriptive text
+            link_summary = f"There's a link here titled '{link_text}'. Clicking it will take you to another page for more information or actions."
             actionable_items.append(link_summary)
 
-    # Summarize actionable content
+    # Prioritize and present content in an accessible manner
     if not actionable_items:
-        return "No actionable items found."
-    return "Actionable items include: " + ", ".join(actionable_items)
+        return "We couldn't find any specific actions to take on this page. You might want to look around or ask for help if you're looking for something specific."
+    
+    return "Here's what you can do on this page: " + "; ".join(actionable_items) + ". If anything is unclear, you may want to ask someone for help or try clicking on items that interest you."
 
 def get_page_summary(driver, api_key):
     """Generate a summary of the webpage using Anthropic API and return it."""
@@ -171,38 +158,66 @@ def update_chatbox_prompt_1(driver, summary):
     """
     driver.execute_script(input_script)
 
+# def get_actionable_items(driver, api_key, user_input):
+    # """Generate a summary of the webpage using OpenAI's API and return actionable JavaScript based on user input."""
+    # html = driver.page_source
+    # soup = extract_actionable_content(html)
+    # client = OpenAI(api_key=api_key)
+    
+    # prompt = f"""Given the user's intention and webpage content, identify key actions and generate corresponding JavaScript. 
+    # Focus on actions like form submissions, sign-ups, and feedback based on the user's needs.
+    # Do not perform any action.
+    # Only identify user's need.
+
+    # User's need: {user_input}
+    # Webpage content: {soup}
+
+    # Provide actionable JavaScript snippets for user's identified need and see if the webpage can facilitate that, formatted as:
+    # Action1: [JS code 1]
+    # Action2: [JS code 2]
+    # .
+    # .
+    # .
+    # .
+    # """
+
+    # openai_response = client.chat.completions.create(
+        # model='gpt-3.5-turbo',
+        # messages=[{'role': 'user', 'content': prompt}]
+    # )
+
+    # return openai_response.choices[0].message.content
+
 def get_actionable_items(driver, api_key, user_input):
-    """Generate a summary of the webpage using OpenAI's API and return it."""
+    """Generate a summary of the webpage using OpenAI's API and return actionable JavaScript based on user input."""
     html = driver.page_source
     soup = extract_actionable_content(html)
-    client = OpenAI(
-      api_key=api_key,  # Ensure your API key is set as an environment variable
-    )
-    prompt = ("""You are now an advanced intelligent assistant tasked with meticulously examining the content of a webpage. Your primary objective is to identify all forms that require user input and any text that suggests actionable items such as filling out information, signing up, or providing feedback. Importantly, you must also take into account any specific input or queries provided by a user interacting with the webpage. This means, if a user has entered certain information or posed questions, you should use this context to guide your identification and explanation of relevant actionable items.
+    client = OpenAI(api_key=api_key)
+    
+    prompt = f"""Given the user's intention and webpage content, identify key actions and generate corresponding JavaScript. 
+    Focus on actions like form submissions, sign-ups, and feedback based on the user's needs.
+    Do not perform any action.
+    Only identify user's need.
 
-                For instance, if the user has shown interest in signing up for a newsletter by asking about it, focus on detailing the signup process and what information is needed (like name, email address, preferences). Similarly, if the user input suggests they are looking for feedback options, direct your attention to summarizing how and where they can leave their feedback on the webpage.
+    User's need: {user_input}
+    Webpage content: {soup}
 
-                Remember, your role is to do this analysis quietly and without taking any direct actions such as clicking buttons or following links. Your goal is to compile a comprehensive list of these actionable items, clearly describing each and linking them back to the user's input or queries where applicable. Your insights should aim to support users in navigating the webpage, making their experience as personalized, seamless, and efficient as possible.
+    Provide actionable JavaScript snippets for user's identified need and see if the webpage can facilitate that, formatted as:
+    Action1: [JS code 1]
+    Action2: [JS code 2]
+    .
+    .
+    .
+    .
+    """
 
-                You will only share javascript which can be executed on the webpage and nothing else.
-                
-                Your output will be in following format:
-                Action Number , Javascript code
-                1, [Code1]
-                2, [Code2]
-
-                User Input : """ + str(user_input) + """ HTML page Details: """ + str(soup))
-
-    # Generating response from gpt-3.5-turbo
-    # Generating response from gpt-3.5-turbo
     openai_response = client.chat.completions.create(
-        model='gpt-3.5-turbo',  # You may want to update the model if needed
+        model='gpt-3.5-turbo',
         messages=[{'role': 'user', 'content': prompt}]
     )
 
-    content_block = openai_response.choices[0].message.content
+    return openai_response.choices[0].message.content
 
-    return content_block
 
 # Main execution
 if __name__ == "__main__":
@@ -218,5 +233,4 @@ if __name__ == "__main__":
     actionable_items = get_actionable_items(driver, api_key,user_input)
     print(actionable_items)
     print("Waiting for 1000 seconds. Close the browser manually if needed.")
-    
     time.sleep(1000)  # Wait for 1000 seconds before ending the script
