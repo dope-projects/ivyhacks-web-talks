@@ -197,7 +197,7 @@ def execute_actionable_js(driver, action_output):
     # Base JavaScript template for checking element existence before action
     check_template = """
         try {{
-            {action_output}
+            {check_script}
         }} catch (error) {{
             console.error('Execution Error:', error.toString());
         }}
