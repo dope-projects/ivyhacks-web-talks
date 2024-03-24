@@ -17,15 +17,50 @@ chrome.runtime.onInstalled.addListener(function () {
 // Listen for messages from the popup script
 chrome.runtime.onMessage.addListener(async function (message, sender, sendResponse) {
 
+    // Get the API key from local storage
+    const { apiKey } = await getStorageData(["apiKey"]);
+    // Get the model from local storage
+    const { apiModel } = await getStorageData(["apiModel"]);
+    // get the chat history from local storage
+    const result = await getStorageData(["chatHistory"]);
+
+    if (message.html) {
+        console.log("Received HTML content from content script:", message.html);
+
+        // Treat the HTML content as a message (either from the user or as a system info, your choice)
+        // Here, treating it as a system message for demonstration
+        const systemMessage = {
+            role: "user", // Or "user" based on your design decision
+            content: "Summarize the webpage I am on in simple terms and help me navigate. \
+            Here is the scraped HTML Content of the current tab: " + message.html.substring(0,100000)// Showing a preview for brevity
+        };
+
+        // Add the system message to the chat history
+        chatHistory.push(systemMessage);
+
+        // Optionally, save the updated chat history to local storage
+        chrome.storage.local.set({ chatHistory: chatHistory });
+
+        const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
+
+        if (response) {
+
+            // Get the assistant's response
+            const assistantResponse = response.content[0].text;
+
+            // Add the assistant's response to the message array
+            chatHistory.push({ role: "assistant", content: assistantResponse });
+            // save message array to local storage
+            chrome.storage.local.set({ chatHistory: chatHistory });
+
+            // Send the assistant's response to the popup script
+            chrome.runtime.sendMessage({ answer: assistantResponse });
+
+            console.log("Sent response to popup:", assistantResponse);
+        }
+    }
+
     if (message.userInput) {
-
-        // Get the API key from local storage
-        const { apiKey } = await getStorageData(["apiKey"]);
-        // Get the model from local storage
-        const { apiModel } = await getStorageData(["apiModel"]);
-
-        // get the chat history from local storage
-        const result = await getStorageData(["chatHistory"]);
 
         if (!result.chatHistory || result.chatHistory.length === 0) {
             chatHistory = [];
@@ -36,48 +71,26 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
         // save user's message to message array
         chatHistory.push({ role: "user", content: message.userInput });
 
-        if (apiModel === "claude-3-haiku-20240307") {
-            // Send the user's message to the OpenAI API
-            const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
+        // Send the user's message to the OpenAI API
+        const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
 
-            if (response && response.data && response.data.length > 0) {
-                // Get the image URL
-                const imageUrl = response.data[0].url;
+        if (response) {
 
-                // Add the assistant's response to the message array
-                chatHistory.push({ role: "assistant", content: imageUrl });
+            // Get the assistant's response
+            const assistantResponse = response.content[0].text;
 
-                // save message array to local storage
-                chrome.storage.local.set({ chatHistory: chatHistory });
+            // Add the assistant's response to the message array
+            chatHistory.push({ role: "assistant", content: assistantResponse });
+            // save message array to local storage
+            chrome.storage.local.set({ chatHistory: chatHistory });
 
-                // Send the image URL to the popup script
-                chrome.runtime.sendMessage({ imageUrl: imageUrl });
+            // Send the assistant's response to the popup script
+            chrome.runtime.sendMessage({ answer: assistantResponse });
 
-                console.log("Sent image URL to popup:", imageUrl);
-            }
-            return true; // Enable response callback
-        } else {
-            // Send the user's message to the OpenAI API
-            const response = await fetchChatCompletion(chatHistory, apiKey, apiModel);
-
-            if (response) {
-
-                // Get the assistant's response
-                const assistantResponse = response.content[0].text;
-
-                // Add the assistant's response to the message array
-                chatHistory.push({ role: "assistant", content: assistantResponse });
-
-                // save message array to local storage
-                chrome.storage.local.set({ chatHistory: chatHistory });
-
-                // Send the assistant's response to the popup script
-                chrome.runtime.sendMessage({ answer: assistantResponse });
-
-                console.log("Sent response to popup:", assistantResponse);
-            }
-            return true; // Enable response callback
+            console.log("Sent response to popup:", assistantResponse);
         }
+        return true; // Enable response callback
+
     }
 
     return true; // Enable response callback
